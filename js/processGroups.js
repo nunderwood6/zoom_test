@@ -7,8 +7,18 @@ var w;
 var h;
 var g;
 var violationsGroup;
-var zoom;
-var zoomed;
+
+
+    // add zoom
+    const zoom = d3.zoom()
+          .scaleExtent([1, 8])
+          .on("zoom", zoomed);
+
+
+    function zoomed() {
+        g.attr("transform", d3.event.transform);
+        g.attr("stroke-width", 1 / d3.event.transform.k);
+      }
 //start coords
 var a0,
 b0, 
@@ -19,6 +29,11 @@ var x0,
 y0,
 x1,
 y1;
+//2nd end coords
+var m0,
+n0,
+m1,
+n1;
 
 var groupNames = [
             "Achi",
@@ -61,9 +76,10 @@ function loadData(){
       d3.json("data/raster_extent.geojson"),
       d3.json("data/countries_topo.json"),
       d3.json("data/violationsByMunicipio.geojson"),
-      d3.json("data/zoomBoxWgs84.geojson")
+      d3.json("data/zoomBoxWgs84.geojson"),
+      d3.json("data/secondZoom.geojson")
     ])
-    .then(function([groupsJSON,municipiosTOPO,focusAreaJSON,rasterAreaJSON,countriesTOPO,violationsJSON,zoomBoxJSON]){
+    .then(function([groupsJSON,municipiosTOPO,focusAreaJSON,rasterAreaJSON,countriesTOPO,violationsJSON,zoomBoxJSON,secondZoomJSON]){
         var groupsData = groupsJSON.features;
         var municipios = topojson.feature(municipiosTOPO, municipiosTOPO.objects.municipios).features;
         var focusBox = focusAreaJSON;
@@ -71,16 +87,18 @@ function loadData(){
         var countries = topojson.feature(countriesTOPO, countriesTOPO.objects.countries).features;
         var violations = violationsJSON;
         var zoomBox = zoomBoxJSON;
+        var secondZoom = secondZoomJSON;
+        console.log(secondZoom);
 
-        positionMap(municipios,focusBox,rasterBox,countries, zoomBox);
-        drawDotDensity(groupsData);
-        drawViolations(violations);
+        positionMap(municipios,focusBox,rasterBox,countries, zoomBox,secondZoom);
+        // drawDotDensity(groupsData);
+        // drawViolations(violations);
 
     });
 }
 
 //creates full screen base map and lines up raster and vector layers
-function positionMap(municipios,focusBox,rasterBox,countries, zoomBox){
+function positionMap(municipios,focusBox,rasterBox,countries, zoomBox, secondZoom){
 
   console.log("yes!");
 
@@ -149,27 +167,23 @@ function positionMap(municipios,focusBox,rasterBox,countries, zoomBox){
                                 .attr("d", pathGuate)
                                 .attr("class", "country");
 
-    // add zoom
-    zoom = d3.zoom()
-          .scaleExtent([1, 8])
-          .on("zoom", zoomed);
-
-
-    zoomed = function() {
-        g.attr("transform", d3.event.transform);
-        g.attr("stroke-width", 1 / d3.event.transform.k);
-      }
 
     var zoomBounds = pathGuate.bounds(zoomBox);
     [[x0, y0], [x1, y1]] = zoomBounds;
 
+    var secondZoomBounds = pathGuate.bounds(secondZoom);
+    console.log(secondZoomBounds);
+    [[m0,n0],[m1,n1]] = secondZoomBounds;
+
+
+    // setTimeout(function(){
+    //   zoomMap();
+    // },10000);
+
+    // // console.log
 
     // function zoomMap(){
-    //   var [[x0, y0], [x1, y1]] = pathGuate.bounds(zoomBox);
-    //   svg.transition("zoom in!").duration(1000).attr("viewBox", `${x0} ${y0} ${x1} ${y1}`);
-    // }
-
-    // function zoomMap(){
+    //     console.log("hi");
     //     var [[x0, y0], [x1, y1]] = pathGuate.bounds(zoomBox);
 
 
@@ -349,7 +363,7 @@ function applySimulation(nodes){
 //////////////////1)Smooth Animations, with RAF///////////////////////////////
 //////////////////////////////////////////////////////////////////////
 
-//observer for 1000
+//observer for first zoom
 var observerOptions = {
   root: null,
   rootMargin: "0px",
@@ -377,41 +391,20 @@ function requestTick(){
 }
 
 function update(){
-  
-  console.log("updating!");
-  //reset tick to capture next scroll
+    //reset tick to capture next scroll
   ticking = false;
   
-
   var currentTop = latestKnownTop;
-
   var percent = (window.innerHeight - currentTop)/ window.innerHeight;
-  
   if(percent>1) percent = 1;
   if(percent<0) percent = 0;
 
-  
   var [[tx0,ty0],[tx1,ty1]] = [[a0 + (x0-a0)*percent, b0 + (y0-b0)*percent],[a1 + (x1-a1)*percent, b1 + (y1-b1)*percent] ];
-
   svg.attr("viewBox", `${tx0} ${ty0} ${tx1} ${ty1}`);
 
-
-
-  // console.log("zoom!")
-  // console.log(zoom);
-
-  // svg.transition("zoom").duration(500).call(
-  //     zoom.transform,
-  //     d3.zoomIdentity
-  //       .translate(w/2,h/2)
-  //       .scale(Math.min(8, 1 / Math.max((tx1 - tx0) / w, (ty1 - ty0) / h)))
-  //       .translate(-(tx0 + tx1) / 2, -(ty0 + ty1) / 2)
-  //     )
-
-
-
-
 }
+
+
 var listening;
 
 function intersectionCallback(entries, observer){
@@ -429,24 +422,69 @@ function intersectionCallback(entries, observer){
 }
 
 
+////////////////////////////////////
+
+//observer for first zoom
+var observerOptions2 = {
+  root: null,
+  rootMargin: "0px",
+  threshold: [0,0.1]
+}
+
+let observer2 = new IntersectionObserver(intersectionCallback2, observerOptions2);
+
+var target2 = d3.select(".zoomer2").node();
+observer2.observe(target2);
+
+var latestKnownTop = window.innerHeight;
+var ticking2 = false;
+
+function onScroll2(){
+  latestKnownTop = target2.getBoundingClientRect().top;
+  requestTick2();
+}
+
+function requestTick2(){
+  if(!ticking2){
+      requestAnimationFrame(update2);
+  }
+  ticking2 = true;
+}
+
+function update2(){
+  //reset tick to capture next scroll
+  ticking2 = false;
+  
+  var currentTop = latestKnownTop;
+  var percent = (window.innerHeight - currentTop)/ window.innerHeight;
+  if(percent>1) percent = 1;
+  if(percent<0) percent = 0;
+
+  var [[tx0,ty0],[tx1,ty1]] = [[x0 + (m0-x0)*percent, y0 + (n0-y0)*percent],[x1 + (m1-x1)*percent, y1 + (n1-y1)*percent] ];
+  console.log([[tx0,ty0],[tx1,ty1]]);
+  svg.attr("viewBox", `${tx0} ${ty0} ${tx1} ${ty1}`);
+
+}
+
+
+var listening2;
+
+function intersectionCallback2(entries, observer){
+  if(entries[0].intersectionRatio>0){
+    if(!listening2) {
+      window.addEventListener("scroll",onScroll2);
+      console.log("add listener!");
+    }
+    listening2 = true;
+  } else {
+    console.log("remove listener!");
+    window.removeEventListener("scroll", onScroll2);
+    listening2 = false;
+  }
+}
+
 
 
 loadData();
 
 
-// function clicked(d) {
-
-//     const [[x0, y0], [x1, y1]] = path.bounds(d);
-//     d3.event.stopPropagation();
-//     svg.transition().duration(durationMs).call(
-//       zoom.transform,
-//       d3.zoomIdentity
-//         .translate(w / 2, h / 2)
-//         .scale(Math.min(8, 0.9 / Math.max((x1 - x0) / width, (y1 - y0) / height)))
-//         .translate(-(x0 + x1) / 2, -(y0 + y1) / 2),
-//       d3.mouse(svg.node())
-//     );
-//     // show counties when zoomed in on a state
-//     countyFills.transition().duration(durationMs)
-//       .attr("opacity", 1.0);
-//   }

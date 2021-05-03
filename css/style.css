@@ -139,7 +139,7 @@ div.labels p.waterLabel {
 .country {
 	fill: #555;
 	stroke: none;
-	stroke-width: 1px;
+	stroke-width: 0.5px;
 	opacity: 0.2;
 	stroke-opacity: 1;
 
@@ -178,6 +178,18 @@ article {
 	z-index: 4;
 }
 
+video {
+	height: 100%;
+    left: 0;
+    -o-object-fit: cover;
+    object-fit: cover;
+    opacity: 0;
+    position: absolute;
+    top: 0;
+    transform: translate3d(0, 0, 0);
+    visibility: hidden;
+    width: 100%;
+}
 
 
 /*
