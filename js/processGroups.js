@@ -9,31 +9,27 @@ var g;
 var violationsGroup;
 
 
-    // add zoom
-    const zoom = d3.zoom()
-          .scaleExtent([1, 8])
-          .on("zoom", zoomed);
+// add zoom
+const zoom = d3.zoom()
+      .scaleExtent([1, 8])
+      .on("zoom", zoomed);
 
 
-    function zoomed() {
-        g.attr("transform", d3.event.transform);
-        g.attr("stroke-width", 1 / d3.event.transform.k);
-      }
-//start coords
-var a0,
-b0, 
-a1,
-b1;
-//end coords
-var x0,
-y0,
-x1,
-y1;
+function zoomed() {
+    g.attr("transform", d3.event.transform);
+    g.attr("stroke-width", 1 / d3.event.transform.k);
+  }
+
+//1st end coords
+var x1,
+y1,
+w1,
+h1;
 //2nd end coords
-var m0,
-n0,
-m1,
-n1;
+var x2,
+y2,
+w2,
+h2;
 
 var groupNames = [
             "Achi",
@@ -88,7 +84,6 @@ function loadData(){
         var violations = violationsJSON;
         var zoomBox = zoomBoxJSON;
         var secondZoom = secondZoomJSON;
-        console.log(secondZoom);
 
         positionMap(municipios,focusBox,rasterBox,countries, zoomBox,secondZoom);
         // drawDotDensity(groupsData);
@@ -99,8 +94,6 @@ function loadData(){
 
 //creates full screen base map and lines up raster and vector layers
 function positionMap(municipios,focusBox,rasterBox,countries, zoomBox, secondZoom){
-
-  console.log("yes!");
 
     w = $("div.map").width();
     h = $("div.map").height();
@@ -128,8 +121,6 @@ function positionMap(municipios,focusBox,rasterBox,countries, zoomBox, secondZoo
     focusWidth = computedBox[1][0] - computedBox[0][0];
 
     var container = d3.select("div.map");
-
-    [[a0, b0], [a1, b1]] = [[0,0],[w,h]];
 
     svg = container.append("svg")
               .attr("class", "magic")
@@ -169,11 +160,15 @@ function positionMap(municipios,focusBox,rasterBox,countries, zoomBox, secondZoo
 
 
     var zoomBounds = pathGuate.bounds(zoomBox);
-    [[x0, y0], [x1, y1]] = zoomBounds;
+    console.log(zoomBounds);
+    [x1, y1] = zoomBounds[0];
+    w1 = zoomBounds[1][0] - zoomBounds[0][0];
+    h1 = zoomBounds[1][1] - zoomBounds [0][1]
 
     var secondZoomBounds = pathGuate.bounds(secondZoom);
-    console.log(secondZoomBounds);
-    [[m0,n0],[m1,n1]] = secondZoomBounds;
+    [x2, y2] = secondZoomBounds[0];
+    w2 = secondZoomBounds[1][0] - secondZoomBounds[0][0];
+    h2 = secondZoomBounds[1][1] - secondZoomBounds [0][1]
 
 
     // setTimeout(function(){
@@ -210,9 +205,6 @@ function positionMap(municipios,focusBox,rasterBox,countries, zoomBox, secondZoo
     //                                 .style("top", function(d){
     //                                     return pathGuate.centroid(d)[1]/h*100+"%";
     //                                 });
-
-    // console.log(countriesLabels);
-
 
 
 }
@@ -271,8 +263,6 @@ function drawViolations(violations){
 
     var violationsPacked = makeSiblingPack(filtered,"violations","c_tot");
     var violationsSpread =  applySimulation(violationsPacked);
-
-    console.log(violationsSpread);
 
     //add spread bubbles
     violationsGroup = g.append("g").attr("class", "violations").attr("opacity", 1);
@@ -389,6 +379,7 @@ function requestTick(){
   }
   ticking = true;
 }
+var accelAmmount = 0.9;
 
 function update(){
     //reset tick to capture next scroll
@@ -396,11 +387,19 @@ function update(){
   
   var currentTop = latestKnownTop;
   var percent = (window.innerHeight - currentTop)/ window.innerHeight;
+
   if(percent>1) percent = 1;
   if(percent<0) percent = 0;
 
-  var [[tx0,ty0],[tx1,ty1]] = [[a0 + (x0-a0)*percent, b0 + (y0-b0)*percent],[a1 + (x1-a1)*percent, b1 + (y1-b1)*percent] ];
-  svg.attr("viewBox", `${tx0} ${ty0} ${tx1} ${ty1}`);
+  // var [[tx,ty],[tw,th]] = [[x1*percent, y1*percent],[w + (w1-w)*percent, h + (h1-h)*percent]];
+  var targetScale = 3;
+  var s = 1 + (targetScale-1)*percent;
+
+
+
+  g.transition().duration(0).attr("transform", `scale(${s} ${s})`);
+  // svg.transition().duration(0).attr("viewBox", `${tx} ${ty} ${tw} ${th}`);
+  // console.log("fire!");
 
 }
 
@@ -411,11 +410,9 @@ function intersectionCallback(entries, observer){
   if(entries[0].intersectionRatio>0){
     if(!listening) {
       window.addEventListener("scroll",onScroll);
-      console.log("add listener!");
     }
     listening = true;
   } else {
-    console.log("remove listener!");
     window.removeEventListener("scroll", onScroll);
     listening = false;
   }
@@ -460,9 +457,11 @@ function update2(){
   if(percent>1) percent = 1;
   if(percent<0) percent = 0;
 
-  var [[tx0,ty0],[tx1,ty1]] = [[x0 + (m0-x0)*percent, y0 + (n0-y0)*percent],[x1 + (m1-x1)*percent, y1 + (n1-y1)*percent] ];
-  console.log([[tx0,ty0],[tx1,ty1]]);
-  svg.attr("viewBox", `${tx0} ${ty0} ${tx1} ${ty1}`);
+
+  g.transition().duration(0).attr("transform", `scale(3 3) translate(${percent*-200} ${percent*-500})`);
+
+  // var [[tx,ty],[tw,th]] = [[x1 + (x2-x1)*percent, y1 + (y2-y1)*percent],[w1 + (w2-w1)*percent, h1 + (h2-h1)*percent] ];
+  // svg.attr("viewBox", `${tx} ${ty} ${tw} ${th}`);
 
 }
 
@@ -473,11 +472,9 @@ function intersectionCallback2(entries, observer){
   if(entries[0].intersectionRatio>0){
     if(!listening2) {
       window.addEventListener("scroll",onScroll2);
-      console.log("add listener!");
     }
     listening2 = true;
   } else {
-    console.log("remove listener!");
     window.removeEventListener("scroll", onScroll2);
     listening2 = false;
   }
